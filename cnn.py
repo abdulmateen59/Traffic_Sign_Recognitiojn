@@ -9,12 +9,14 @@ from keras.layers import BatchNormalization
 from keras.optimizers import Adam
 from keras.models import Sequential
 
-data_dir = os.path.abspath('C:\\')
+data_dir = os.path.abspath('/home/dell/Downloads/GTSRB-Training_fixed/GTSRB/Training')
 list_images = []
 output = []
 for dir in os.listdir(data_dir):
+    print(dir)
     inner_dir = os.path.join(data_dir, dir)
     csv_file = pd.read_csv(os.path.join(inner_dir,"GT-" + dir + '.csv'), sep=';')
+    print(csv_file)
     for row in csv_file.iterrows() :
         img_path = os.path.join(inner_dir, row[1].Filename)
         img = cv2.imread(img_path)
@@ -28,27 +30,43 @@ randomize = np.arange(len(input_array))
 np.random.shuffle(randomize)
 x = input_array[randomize]
 y = train_y[randomize]
-split_size = int(x.shape[0]*0.6)
+split_size = int(x.shape[0]*0.80)
 train_x, val_x = x[:split_size], x[split_size:]
+train_x = train_x / 255.0
 train1_y, val_y = y[:split_size], y[split_size:]
 split_size = int(val_x.shape[0]*0.5)
 val_x, test_x = val_x[:split_size], val_x[split_size:]
+test_x = test_x / 255.0
 val_y, test_y = val_y[:split_size], val_y[split_size:]
 model = Sequential([
- Conv2D(32, (3, 3), activation='relu', input_shape=(64,64,3), padding='same'),
+ Conv2D(8, (3, 3), activation='relu', input_shape=(64,64,3), padding='same'),
  BatchNormalization(),
- Conv2D(64, (3, 3), activation='relu', padding='same'),
- MaxPooling2D(pool_size=(2, 2), strides=1),
+ MaxPooling2D(pool_size=(2, 2)),
+ Dropout(0.2),
+ Conv2D(16, (3, 3), activation='relu', padding='same'),
+ BatchNormalization(),
+ MaxPooling2D(pool_size=(2, 2)),
+ Dropout(0.2),
+ Conv2D(32, (3, 3), activation='relu', padding='same'),
+ BatchNormalization(),
+ MaxPooling2D(pool_size=(2, 2)),
  Dropout(0.2),
  Conv2D(64, (3, 3), activation='relu', padding='same'),
- MaxPooling2D(pool_size=(2, 2), strides=1),
+ BatchNormalization(),
+ MaxPooling2D(pool_size=(2, 2)),
+ Dropout(0.2),
  Flatten(),
- Dense(units=100, activation='relu'),
- Dropout(0.5),
- Dense(units=4, activation='softmax')])
-model.compile(loss='categorical_crossentropy', optimizer='Adam', metrics=['accuracy'])
-trained_model_conv = model.fit(train_x.reshape(-1,64,64,3), train1_y, epochs=24, batch_size=16, validation_data=(val_x, val_y))
+ Dense(units=512, activation='relu'),
+ Dropout(0.3),
+ Dense(units=256, activation='relu'),
+ Dropout(0.3),
+ Dense(units=64, activation='relu'),
+ Dropout(0.3),
+ Dense(units=4, input_dim=512, activation='softmax') ])
+model.compile(loss='categorical_crossentropy', optimizer=Adam(lr=1e-4), metrics=['accuracy'])
+trained_model_conv = model.fit_generator(train_x.reshape(-1,64,64,3), train1_y, epochs=6, batch_size=8, validation_data=(val_x, val_y),shuffle=True)
 model.save('traffic_Sign.model')
 pred = model.predict_classes(test_x)
+print(pred)
 loss , accuracy = model.evaluate(test_x, test_y)
 print( "Loss of {}".format( loss ) , "Accuracy of {} %".format( accuracy * 100 ) )
